@@ -20,7 +20,7 @@ graph TD
     D -->|Target < 12cm| F[REMATE MAX VEL]
     D -->|Pérdida de rastro > 450ms| B
     C -->|Línea despejada| E
-    E -->|Giro completado 420ms| B
+    E -->|Giro completado 420ms| B```
 
 ## Especificaciones Hardware
 - **Controlador:** Arduino Uno / Nano (ATmega328P)
