@@ -21,7 +21,7 @@ Código de control autónomo para Robot de Sumo optimizado para Arduino Uno/Nano
 | **Ultrasonido Der** | TRIG / ECHO | Pin A4 / Pin A5 | Analógico / Digital |
 | **Sensores Línea** | IZQ / DER | Pin A3 / Pin A2 | Digital In |
 
-## ⚙️️ Máquina de Estados
+##  Máquina de Estados
 1. `INICIO_RUSH`: Arranque directo tras los 5 segundos reglamentarios.
 2. `BUSCANDO`: Patrón de escaneo alternado con memoria de última dirección vista.
 3. `ATACANDO`: Embestida con corrección proporcional ($K_p$) para centrar al oponente.
