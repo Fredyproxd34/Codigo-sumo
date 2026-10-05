@@ -20,9 +20,9 @@ graph TD
     D -->|Target < 12cm| F[REMATE MAX VEL]
     D -->|Pérdida de rastro > 450ms| B
     C -->|Línea despejada| E
-    E -->|Giro completado 420ms| B```
+    E -->|Giro completado 420ms| B
 
-## Especificaciones Hardware
+``` ## Especificaciones Hardware
 - **Controlador:** Arduino Uno / Nano (ATmega328P)
 - **Drivers de Motor:** 2x IBT-2 (H-Bridge 43A)
 - **Sensores de Distancia:** 3x HC-SR04 (Izquierda, Centro, Derecha)
