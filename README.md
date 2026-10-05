@@ -27,3 +27,16 @@ Código de control autónomo para Robot de Sumo optimizado para Arduino Uno/Nano
 3. `ATACANDO`: Embestida con corrección proporcional ($K_p$) para centrar al oponente.
 4. `ESCAPANDO`: Maniobra de retroceso de emergencia al detectar borde blanco.
 5. `GIRANDO180`: Giro rápido de desenganche.
+
+##  Diagrama de Flujo (Máquina de Estados)
+
+```mermaid
+graph TD
+    A[INICIO_RUSH] -->|350 ms| B[BUSCANDO]
+    B -->|Línea detectada| C[ESCAPANDO]
+    B -->|Target < 45cm x2| D[ATACANDO]
+    B -->|Timeout 2.8s| E[GIRANDO180]
+    D -->|Target < 12cm| F[REMATE MAX VEL]
+    D -->|Pérdida de rastro > 450ms| B
+    C -->|Línea despejada| E
+    E -->|Giro completado 420ms| B
