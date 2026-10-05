@@ -1,10 +1,10 @@
-﻿#  SumoBot Autonomous Robot (4x IBT-2 Driver)
+﻿#  SumoBot Autonomous Robot (2x IBT-2 Driver)
 
 Código de control autónomo para Robot de Sumo optimizado para Arduino Uno/Nano. Implementa máquina de estados finitos, lectura secuencial no bloqueante de radar ultrasónico y control de velocidad diferencial.
 
 ##  Especificaciones Hardware
 - **Controlador:** Arduino Uno / Nano (ATmega328P)
-- **Drivers de Motor:** 4x IBT-2 (H-Bridge 43A)
+- **Drivers de Motor:** 2x IBT-2 (H-Bridge 43A)
 - **Sensores de Distancia:** 3x HC-SR04 (Izquierda, Centro, Derecha)
 - **Sensores de Línea:** 2x TCRT5000 (Izquierda, Derecha)
 
