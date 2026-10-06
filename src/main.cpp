@@ -1,183 +1,145 @@
-// --- CONFIGURACIÓN DE PINES PWM (Arduino Uno/Nano) ---
-const uint8_t RPWM_IZQ = 5;  // PWM
-const uint8_t LPWM_IZQ = 6;  // PWM
-const uint8_t R_EN_IZQ = 7; 
-const uint8_t L_EN_IZQ = 8;
+﻿#include <Arduino.h>
 
-const uint8_t RPWM_DER = 9;  // PWM
-const uint8_t LPWM_DER = 10; // PWM
-const uint8_t R_EN_DER = 3;  
-const uint8_t L_EN_DER = 4;  
+const uint8_t RPWM_IZQ = 5;
+const uint8_t LPWM_IZQ = 6;
+const uint8_t RPWM_DER = 9;
+const uint8_t LPWM_DER = 10;
 
-const uint8_t TRIG_C = 11; const uint8_t ECHO_C = 12;
-const uint8_t TRIG_I = A0; const uint8_t ECHO_I = A1;
-const uint8_t TRIG_D = A4; const uint8_t ECHO_D = A5;
-const uint8_t LINEA_I = A3; const uint8_t LINEA_D = A2;
+const uint8_t SENSOR_LINEA_IZQ = A3;
+const uint8_t SENSOR_LINEA_DER = A2;
 
-// --- PARÁMETROS TÁCTICOS ---
-const uint8_t DIST_VISION = 70;
-const uint8_t DIST_ATAQUE = 45;
-const uint8_t DIST_CONTACTO = 12;
-const uint8_t VEL_ATAQUE_BASE = 190;
-const uint8_t VEL_MAX = 255;
-const uint8_t VEL_BUSQUEDA = 145;
-const float Kp = 3.0;
+const uint8_t TRIG_CEN = 11, ECHO_CEN = 12;
+const uint8_t TRIG_IZQ = A0, ECHO_IZQ = A1;
+const uint8_t TRIG_DER = A4, ECHO_DER = A5;
 
-enum Estado { INICIO_RUSH, BUSCANDO, ATACANDO, ESCAPANDO, GIRANDO180 };
-Estado estadoActual = INICIO_RUSH;
+const int VELOCIDAD_MAXIMA = 200;
+const int VELOCIDAD_GIRO   = 150; 
 
-unsigned long tUltimoRadar = 0, tUltimoAvistamiento = 0, tEstado = 0, tLinea = 0, tBusqueda = 0;
-uint8_t turno = 0, confirmacion = 0;
-int dC = 999, dI = 999, dD = 999;
-int8_t memoriaDireccion = 1;
+enum EstadoRobot {
+  INICIO_RUSH,
+  BUSCANDO,
+  ATACANDO,
+  ESCAPANDO
+};
+
+EstadoRobot estadoActual = INICIO_RUSH;
+
+unsigned long tiempoInicio = 0;
+unsigned long tiempoEstado = 0;
+const unsigned long TIEMPO_ESPERA_REGLAMENTO = 5000;
+const int DISTANCIA_UMBRAL_CM = 45;
+
+long distCen = 999, distIzq = 999, distDer = 999;
+
+void controlarMotores(int velIzq, int velDer);
+void controlarDriver(uint8_t rPwm, uint8_t lPwm, int velocidad);
+long medirDistanciaCM(uint8_t trigPin, uint8_t echoPin);
+bool detectarLinea();
+void actualizarSensores();
 
 void setup() {
-  uint8_t salidas[] = {RPWM_IZQ, LPWM_IZQ, R_EN_IZQ, L_EN_IZQ, RPWM_DER, LPWM_DER, R_EN_DER, L_EN_DER, TRIG_C, TRIG_I, TRIG_D};
-  for(uint8_t p : salidas) pinMode(p, OUTPUT);
-  pinMode(ECHO_C, INPUT); pinMode(ECHO_I, INPUT); pinMode(ECHO_D, INPUT);
-  pinMode(LINEA_I, INPUT); pinMode(LINEA_D, INPUT);
+  pinMode(RPWM_IZQ, OUTPUT);
+  pinMode(LPWM_IZQ, OUTPUT);
+  pinMode(RPWM_DER, OUTPUT);
+  pinMode(LPWM_DER, OUTPUT);
 
-  // Habilitar drivers IBT-2
-  digitalWrite(R_EN_IZQ, HIGH); digitalWrite(L_EN_IZQ, HIGH);
-  digitalWrite(R_EN_DER, HIGH); digitalWrite(L_EN_DER, HIGH);
+  pinMode(SENSOR_LINEA_IZQ, INPUT);
+  pinMode(SENSOR_LINEA_DER, INPUT);
 
-  delay(5000); // 5s reglamentarios
-  tEstado = tUltimoAvistamiento = tUltimoRadar = tBusqueda = millis();
+  pinMode(TRIG_CEN, OUTPUT); pinMode(ECHO_CEN, INPUT);
+  pinMode(TRIG_IZQ, OUTPUT); pinMode(ECHO_IZQ, INPUT);
+  pinMode(TRIG_DER, OUTPUT); pinMode(ECHO_DER, INPUT);
+
+  tiempoInicio = millis();
 }
 
 void loop() {
-  // 1. RADAR SECUENCIAL NO BLOQUEANTE (3500us timeout = ~60cm)
-  if (millis() - tUltimoRadar >= 12) { 
-    tUltimoRadar = millis();
-    switch(turno++ % 3) {
-      case 0: dC = leerDistancia(TRIG_C, ECHO_C); break;
-      case 1: dI = leerDistancia(TRIG_I, ECHO_I); break;
-      case 2: dD = leerDistancia(TRIG_D, ECHO_D); break;
-    }
-  }
-
-  // 2. SEGURIDAD DE LÍNEA (Prioridad alta)
-  bool sL_I = (digitalRead(LINEA_I) == LOW);
-  bool sL_D = (digitalRead(LINEA_D) == LOW);
-  
-  if ((sL_I || sL_D) && estadoActual != ESCAPANDO) {
+  if (detectarLinea() && estadoActual != ESCAPANDO) {
     estadoActual = ESCAPANDO;
-    tLinea = millis();
+    tiempoEstado = millis();
   }
 
-  // 3. MÁQUINA DE ESTADOS
   switch (estadoActual) {
+
     case INICIO_RUSH:
-      motores(VEL_MAX, VEL_MAX);
-      if (millis() - tEstado > 350) {
+      if (millis() - tiempoInicio >= TIEMPO_ESPERA_REGLAMENTO) {
+        controlarMotores(VELOCIDAD_MAXIMA, VELOCIDAD_MAXIMA);
+        delay(350); 
         estadoActual = BUSCANDO;
-        tBusqueda = millis();
+      } else {
+        controlarMotores(0, 0);
       }
       break;
 
     case BUSCANDO:
-      if (millis() - tBusqueda < 600) {
-        motores(VEL_BUSQUEDA * memoriaDireccion, -VEL_BUSQUEDA * memoriaDireccion);
-      } else if (millis() - tBusqueda < 950) {
-        motores(VEL_BUSQUEDA, VEL_BUSQUEDA);
+      actualizarSensores();
+      if (distCen < DISTANCIA_UMBRAL_CM || distIzq < DISTANCIA_UMBRAL_CM || distDer < DISTANCIA_UMBRAL_CM) {
+        estadoActual = ATACANDO;
       } else {
-        tBusqueda = millis();
-      }
-      
-      if (dC < DIST_VISION || dI < DIST_VISION || dD < DIST_VISION) {
-        tUltimoAvistamiento = millis();
-        
-        if (dI < DIST_VISION) memoriaDireccion = -1;
-        if (dD < DIST_VISION) memoriaDireccion = 1;
-
-        if (dC < DIST_ATAQUE || dI < DIST_ATAQUE || dD < DIST_ATAQUE) {
-          confirmacion++;
-          if (confirmacion >= 2) estadoActual = ATACANDO;
-        } else {
-          confirmacion = 0;
-        }
-      } else {
-        if (millis() - tUltimoAvistamiento > 2800) {
-          estadoActual = GIRANDO180;
-          tEstado = millis();
-        }
+        controlarMotores(VELOCIDAD_GIRO, -VELOCIDAD_GIRO);
       }
       break;
 
     case ATACANDO:
-      if (dI < DIST_ATAQUE) memoriaDireccion = -1;
-      if (dD < DIST_ATAQUE) memoriaDireccion = 1;
-
-      if (dC < DIST_CONTACTO || dI < 8 || dD < 8) {
-        motores(VEL_MAX, VEL_MAX);
-      } else {
-        // Restaurado: dI - dD para giro correcto hacia el oponente
-        int error = dI - dD; 
-        int ajuste = constrain(error * Kp, -70, 70);
-        motores(VEL_ATAQUE_BASE + ajuste, VEL_ATAQUE_BASE - ajuste);
-      }
-
-      if (dC > DIST_ATAQUE && dI > DIST_ATAQUE && dD > DIST_ATAQUE) {
-        if (millis() - tUltimoAvistamiento > 450) {
-          estadoActual = BUSCANDO;
-          tBusqueda = millis();
-        }
-      } else {
-        tUltimoAvistamiento = millis();
-      }
-      break;
-
-    case ESCAPANDO:
-      if ((digitalRead(LINEA_I) == LOW || digitalRead(LINEA_D) == LOW) || (millis() - tLinea < 350)) {
-        if (digitalRead(LINEA_I) == LOW) motores(-VEL_MAX, -VEL_BUSQUEDA);
-        else motores(-VEL_BUSQUEDA, -VEL_MAX);
-      } else {
-        estadoActual = GIRANDO180;
-        tEstado = millis();
-      }
-      break;
-
-    case GIRANDO180:
-      if (millis() - tEstado < 420) {
-        motores(VEL_MAX * memoriaDireccion, -VEL_MAX * memoriaDireccion);
+      actualizarSensores();
+      if (distCen < DISTANCIA_UMBRAL_CM) {
+        controlarMotores(VELOCIDAD_MAXIMA, VELOCIDAD_MAXIMA);
+      } else if (distIzq < DISTANCIA_UMBRAL_CM) {
+        controlarMotores(VELOCIDAD_GIRO / 2, VELOCIDAD_MAXIMA);
+      } else if (distDer < DISTANCIA_UMBRAL_CM) {
+        controlarMotores(VELOCIDAD_MAXIMA, VELOCIDAD_GIRO / 2);
       } else {
         estadoActual = BUSCANDO;
-        tBusqueda = millis();
-        tUltimoAvistamiento = millis();
-        confirmacion = 0; // Reinicio de confirmación al terminar giro
       }
       break;
+
+    case ESCAPANDO: {
+      unsigned long transcurrido = millis() - tiempoEstado;
+      if (transcurrido < 350) {
+        controlarMotores(-VELOCIDAD_MAXIMA, -VELOCIDAD_MAXIMA);
+      } else if (transcurrido < 650) {
+        controlarMotores(VELOCIDAD_MAXIMA, -VELOCIDAD_MAXIMA);
+      } else {
+        estadoActual = BUSCANDO;
+      }
+      break;
+    }
   }
 }
 
-void motores(int vI, int vD) {
-  vI = constrain(vI, -255, 255);
-  vD = constrain(vD, -255, 255);
+void actualizarSensores() {
+  distCen = medirDistanciaCM(TRIG_CEN, ECHO_CEN);
+  distIzq = medirDistanciaCM(TRIG_IZQ, ECHO_IZQ);
+  distDer = medirDistanciaCM(TRIG_DER, ECHO_DER);
+}
 
-  if (vI >= 0) { 
-    analogWrite(RPWM_IZQ, vI); 
-    analogWrite(LPWM_IZQ, 0); 
-  } else { 
-    analogWrite(RPWM_IZQ, 0); 
-    analogWrite(LPWM_IZQ, abs(vI)); 
-  }
+void controlarMotores(int velIzq, int velDer) {
+  controlarDriver(RPWM_IZQ, LPWM_IZQ, velIzq);
+  controlarDriver(RPWM_DER, LPWM_DER, velDer);
+}
 
-  if (vD >= 0) { 
-    analogWrite(RPWM_DER, vD); 
-    analogWrite(LPWM_DER, 0); 
-  } else { 
-    analogWrite(RPWM_DER, 0); 
-    analogWrite(LPWM_DER, abs(vD)); 
+void controlarDriver(uint8_t rPwm, uint8_t lPwm, int velocidad) {
+  velocidad = constrain(velocidad, -VELOCIDAD_MAXIMA, VELOCIDAD_MAXIMA);
+  if (velocidad >= 0) {
+    analogWrite(rPwm, velocidad);
+    analogWrite(lPwm, 0);
+  } else {
+    analogWrite(rPwm, 0);
+    analogWrite(lPwm, abs(velocidad));
   }
 }
 
-int leerDistancia(int trig, int echo) {
-  digitalWrite(trig, LOW); 
+long medirDistanciaCM(uint8_t trigPin, uint8_t echoPin) {
+  digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
-  digitalWrite(trig, HIGH); 
+  digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
-  digitalWrite(trig, LOW);
-  
-  long d = pulseIn(echo, HIGH, 3500); 
-  return (d == 0) ? 999 : d / 58;
+  digitalWrite(trigPin, LOW);
+  long duracion = pulseIn(echoPin, HIGH, 18000);
+  if (duracion == 0) return 999;
+  return duracion * 0.034 / 2;
+}
+
+bool detectarLinea() {
+  return (digitalRead(SENSOR_LINEA_IZQ) == HIGH || digitalRead(SENSOR_LINEA_DER) == HIGH);
 }
