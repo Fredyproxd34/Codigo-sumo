@@ -32,14 +32,15 @@ graph TD
 
 | Componente | Función | Pin Arduino | Tipo |
 | :--- | :--- | :--- | :--- |
-| **IBT-2 Izquierdo** | RPWM / LPWM | Pin 5 / Pin 6 | PWM |
-| **IBT-2 Izquierdo** | R_EN / L_EN | Pin 7 / Pin 8 | Digital |
+| **IBT-2 Izquierdo (motores izquierdas)** | RPWM / LPWM | Pin 5 / Pin 6 | PWM |
+| **IBT-2 Izquierdo** | R_EN / L_EN | Salida 5V Regulador (o Pins 7 / 8) | Alimentación constante / Digital |
 | **IBT-2 Derecho** | RPWM / LPWM | Pin 9 / Pin 10 | PWM |
-| **IBT-2 Derecho** | R_EN / L_EN | Pin 3 / Pin 4 | Digital |
+| **IBT-2 Derecho** | R_EN / L_EN | Salida 5V Regulador (o Pins 3 / 4) | Alimentación constante / Digital |
 | **Ultrasonido Centro** | TRIG / ECHO | Pin 11 / Pin 12 | Digital |
 | **Ultrasonido Izq** | TRIG / ECHO | Pin A0 / Pin A1 | Analógico / Digital |
 | **Ultrasonido Der** | TRIG / ECHO | Pin A4 / Pin A5 | Analógico / Digital |
 | **Sensores Línea** | IZQ / DER | Pin A3 / Pin A2 | Digital In |
+| **Regulador 5v** | VOUT+ / VOUT- | Fuente de poder o 5v arduino / GND Común | Alimentación lógica y referencia |
 
 ## Máquina de Estados
 1. `INICIO_RUSH`: Arranque directo tras los 5 segundos reglamentarios.
